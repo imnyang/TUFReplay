@@ -18,7 +18,16 @@ internal static class RecordingCsvReader
   // The caller owns the reader. Enumeration validates each row before yielding it.
   public static IEnumerable<RecordedKeyEvent> ReadInputEvents(TextReader reader)
   {
-    ReadHeader(reader, InputsHeader);
+    if (reader == null)
+      throw new ArgumentNullException(nameof(reader));
+    string header = reader.ReadLine()?.TrimStart('\uFEFF');
+    bool nativeKeys = header == InputsHeader + ",windowsNativeKey";
+    if (!nativeKeys && header != InputsHeader)
+      throw new RecordingFormatException(
+        "render_csv_header_invalid",
+        "The recording input CSV header is invalid.",
+        line: 1
+      );
     var names = new Dictionary<string, string>(StringComparer.Ordinal);
     int count = 0;
     RecordedKeyEvent previous = default;
@@ -29,7 +38,7 @@ internal static class RecordingCsvReader
       lineNumber++;
       if (string.IsNullOrWhiteSpace(line))
         continue;
-      string[] row = Split(line, 4, lineNumber);
+      string[] row = Split(line, nativeKeys ? 5 : 4, lineNumber);
       long timeUs = Integer(row[0], lineNumber, "timeUs");
       if (!IsSymbol(row[1]))
         Fail(lineNumber, "The key must be a symbolic Unity key name.", "render_input_key_unsupported", "key");
@@ -51,7 +60,15 @@ internal static class RecordingCsvReader
       }
       if (count == MaximumEvents)
         Fail(lineNumber, "The recording has too many input events.");
-      previous = new RecordedKeyEvent(timeUs, key, down, sequence);
+      int? nativeKey = null;
+      if (nativeKeys && row[4].Length != 0)
+      {
+        int value = SmallInteger(row[4], lineNumber, "windowsNativeKey");
+        if (value <= 0 || value > byte.MaxValue)
+          Fail(lineNumber, "The Windows native key is out of range.", field: "windowsNativeKey");
+        nativeKey = value;
+      }
+      previous = new RecordedKeyEvent(timeUs, key, down, sequence, nativeKey);
       count++;
       yield return previous;
     }

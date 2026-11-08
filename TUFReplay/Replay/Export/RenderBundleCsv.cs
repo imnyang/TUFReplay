@@ -20,10 +20,11 @@ public static class RenderBundleCsv
     IEnumerable<RecordedInput> inputs,
     string platform,
     long terminalTimeUs,
-    CancellationToken cancellation = default
+    CancellationToken cancellation = default,
+    bool includeNativeKeys = false
   )
   {
-    writer.WriteLine(InputHeader);
+    writer.WriteLine(includeNativeKeys ? InputHeader + ",windowsNativeKey" : InputHeader);
     long previous = long.MinValue,
       sequence = 0;
     foreach (RecordedInput input in inputs)
@@ -38,7 +39,16 @@ public static class RenderBundleCsv
           checked((int)sequence + 2),
           "inputs.csv"
         );
-      writer.WriteLine(FormattableString.Invariant($"{input.TimeUs},{name},{(input.Down ? 1 : 0)},{sequence++}"));
+      string row = FormattableString.Invariant($"{input.TimeUs},{name},{(input.Down ? 1 : 0)},{sequence++}");
+      if (includeNativeKeys)
+        row +=
+          ","
+          + (
+            string.Equals(platform, "windows", StringComparison.OrdinalIgnoreCase)
+              ? input.Key.ToString(CultureInfo.InvariantCulture)
+              : ""
+          );
+      writer.WriteLine(row);
       previous = input.TimeUs;
     }
   }

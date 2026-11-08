@@ -10,6 +10,7 @@ internal static class RenderHostSuite
   internal static void RunAll(string root)
   {
     ReadsTheBundleItWrote(root);
+    PreservesNativeInputIdentity(root);
     TellsOrbitRenderAbsoluteMediaPaths(root);
     RefusesMediaOutsideTheBundle(root);
     Console.WriteLine("TUFReplay render host tests passed.");
@@ -25,6 +26,69 @@ internal static class RenderHostSuite
     Assert(bundle.Hits.Length == 1 && bundle.Hits[0].Margin == "Perfect", "Recorded hits were not read.");
     Assert(bundle.Manifest.Replay.TerminalTimeUs == 2_000_000, "The end of the recording was not read.");
     Console.WriteLine("PASS the render host reads the recording bundle TUFReplay exports");
+  }
+
+  private static void PreservesNativeInputIdentity(string root)
+  {
+    string path = WriteBundle(root, "native", media: null);
+    string directory = Path.GetDirectoryName(path);
+    using var csv = new StringWriter();
+    RenderBundleCsv.WriteInputs(
+      csv,
+      new[]
+      {
+        new TUFReplay.Replay.Models.RecordedInput(0, 0x15, TUFReplay.Replay.Models.RecordInputFlags.Down),
+        new TUFReplay.Replay.Models.RecordedInput(1, 0xA5, TUFReplay.Replay.Models.RecordInputFlags.Down),
+        new TUFReplay.Replay.Models.RecordedInput(2, 0x15, 0),
+        new TUFReplay.Replay.Models.RecordedInput(3, 0xA5, 0),
+      },
+      "windows",
+      3,
+      includeNativeKeys: true
+    );
+    File.WriteAllText(Path.Combine(directory, "inputs.native.csv"), csv.ToString());
+    JObject manifest = JObject.Parse(File.ReadAllText(path));
+    manifest["nativeInputsFile"] = "inputs.native.csv";
+    File.WriteAllText(path, manifest.ToString());
+    RecordingBundle bundle = RecordingBundle.Load(path);
+    Assert(bundle.Inputs.Length == 4, "The native input companion file was ignored.");
+    Assert(
+      bundle.Inputs[0].WindowsNativeKey == 0x15 && bundle.Inputs[1].WindowsNativeKey == 0xA5,
+      "Hangul and right Alt lost their distinct native identities."
+    );
+    Assert(
+      !bundle.Inputs[2].Down && bundle.Inputs[2].WindowsNativeKey == 0x15,
+      "The Hangul release lost its native identity."
+    );
+    Assert(
+      !RecordingBundle.Load(WriteBundle(root, "legacy-native", media: null)).Inputs[0].WindowsNativeKey.HasValue,
+      "A legacy bundle invented a native key."
+    );
+    using var mac = new StringWriter();
+    RenderBundleCsv.WriteInputs(
+      mac,
+      new[] { new TUFReplay.Replay.Models.RecordedInput(0, 0x15, 0) },
+      "macos",
+      0,
+      includeNativeKeys: true
+    );
+    Assert(
+      !RecordingCsvReader.ReadInputs(new StringReader(mac.ToString()))[0].WindowsNativeKey.HasValue,
+      "A macOS native key was interpreted as a Windows key."
+    );
+    AssertThrows<RecordingFormatException>(
+      () =>
+        RecordingCsvReader.ReadInputs(
+          new StringReader(RecordingCsvReader.InputsHeader + ",windowsNativeKey\n0,RightAlt,1,0,256\n")
+        ),
+      "An invalid Windows native key was accepted."
+    );
+    manifest["nativeInputsFile"] = "../outside.csv";
+    File.WriteAllText(path, manifest.ToString());
+    AssertThrows<RecordingFormatException>(
+      () => RecordingBundle.Load(path),
+      "The native input file escaped the bundle directory."
+    );
   }
 
   private static void TellsOrbitRenderAbsoluteMediaPaths(string root)

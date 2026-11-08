@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using HarmonyLib;
 using TUFReplay.ModApi.Playback;
 using UnityEngine;
@@ -30,7 +31,7 @@ internal sealed class RenderReplayHost
   private readonly double _endDelaySeconds;
   private readonly Dictionary<string, KeyCode> _keyCodes = new Dictionary<string, KeyCode>(StringComparer.Ordinal);
   private readonly Dictionary<string, HitMargin> _margins = new Dictionary<string, HitMargin>(StringComparer.Ordinal);
-  private readonly HashSet<KeyCode> _heldKeys = new HashSet<KeyCode>();
+  private readonly HashSet<(KeyCode Key, int? NativeKey)> _heldKeys = new HashSet<(KeyCode, int?)>();
   private readonly List<Canvas> _canvases = new List<Canvas>();
 
   private GameSettingsSnapshot _settings;
@@ -346,8 +347,8 @@ internal sealed class RenderReplayHost
     _ended = true;
     try
     {
-      foreach (KeyCode held in _heldKeys)
-        ReplaySessions.Key(held, null, false, _currentVideoTimeUs * 10);
+      foreach (var held in _heldKeys)
+        ReplaySessions.Key(held.Key, held.NativeKey, false, _currentVideoTimeUs * 10);
     }
     finally
     {
@@ -364,16 +365,20 @@ internal sealed class RenderReplayHost
   private void ApplyInput(RecordedKeyEvent input)
   {
     KeyCode code = _keyCodes[input.Key];
+    int? nativeKey = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? input.WindowsNativeKey : null;
+    // Keep native-only Hangul distinct from Unity RightAlt, as in in-game playback.
+    if (nativeKey == 0x15)
+      code = KeyCode.None;
     if (input.Down)
-      _heldKeys.Add(code);
+      _heldKeys.Add((code, nativeKey));
     else
-      _heldKeys.Remove(code);
+      _heldKeys.Remove((code, nativeKey));
     long frameTimeUs = _currentVideoTimeUs;
     try
     {
       // Overlay clocks read the key's own time while it is delivered; the replay clock stays monotonic.
       _currentVideoTimeUs = ReplayToVideoTimeUs(input.TimeUs);
-      ReplaySessions.Key(code, null, input.Down, checked(_currentVideoTimeUs * 10));
+      ReplaySessions.Key(code, nativeKey, input.Down, checked(_currentVideoTimeUs * 10));
     }
     finally
     {

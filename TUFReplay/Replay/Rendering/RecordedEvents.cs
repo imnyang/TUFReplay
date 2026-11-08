@@ -2,18 +2,20 @@ namespace TUFReplay.Replay.Rendering;
 
 internal readonly struct RecordedKeyEvent
 {
-  public RecordedKeyEvent(long timeUs, string key, bool down, long sequence)
+  public RecordedKeyEvent(long timeUs, string key, bool down, long sequence, int? windowsNativeKey = null)
   {
     TimeUs = timeUs;
     Key = key;
     Down = down;
     Sequence = sequence;
+    WindowsNativeKey = windowsNativeKey;
   }
 
   public long TimeUs { get; }
   public string Key { get; }
   public bool Down { get; }
   public long Sequence { get; }
+  public int? WindowsNativeKey { get; }
 }
 
 internal readonly struct RecordedHitEvent

@@ -241,6 +241,17 @@ public static class RenderBundleExportService
       Directory.CreateDirectory(job.Directory);
       using (var writer = new StreamWriter(Path.Combine(job.Directory, "inputs.csv"), false, new UTF8Encoding(false)))
         RenderBundleCsv.WriteInputs(writer, inputs, meta.inputNativePlatform, terminalTimeUs, token);
+      using (
+        var writer = new StreamWriter(Path.Combine(job.Directory, "inputs.native.csv"), false, new UTF8Encoding(false))
+      )
+        RenderBundleCsv.WriteInputs(
+          writer,
+          inputs,
+          meta.inputNativePlatform,
+          terminalTimeUs,
+          token,
+          includeNativeKeys: true
+        );
       using (var writer = new StreamWriter(Path.Combine(job.Directory, "hits.csv"), false, new UTF8Encoding(false)))
         RenderBundleCsv.WriteHits(writer, hits, terminalTimeUs, value => Enum.GetName(typeof(HitMargin), value), token);
       SetProgress(job, 0.35);
@@ -348,6 +359,7 @@ public static class RenderBundleExportService
             terminalTimeUs,
           },
           inputsFile = "inputs.csv",
+          nativeInputsFile = "inputs.native.csv",
           hitsFile = "hits.csv",
           warnings,
         }

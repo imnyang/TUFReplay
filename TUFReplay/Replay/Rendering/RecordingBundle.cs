@@ -90,8 +90,8 @@ internal sealed class RecordingBundle
     RecordedHitEvent[] hits;
     inputs = ReadCsv(
       directory,
-      manifest.InputsFile,
-      "inputsFile",
+      manifest.NativeInputsFile ?? manifest.InputsFile,
+      manifest.NativeInputsFile != null ? "nativeInputsFile" : "inputsFile",
       "render_input_file_missing",
       RecordingCsvReader.ReadInputs
     );

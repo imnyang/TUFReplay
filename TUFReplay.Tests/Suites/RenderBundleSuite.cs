@@ -97,6 +97,27 @@ internal static class RenderBundleSuite
       "Neutral key export lost a short pulse or native keypad identity."
     );
     using var countdown = new StringWriter();
+    using var koreanAlt = new StringWriter();
+    RenderBundleCsv.WriteInputs(
+      koreanAlt,
+      new[]
+      {
+        new RecordedInput(0, 0xA4, RecordInputFlags.Down),
+        new RecordedInput(1, 0xA5, RecordInputFlags.Down | RecordInputFlags.ExtendedKey),
+        new RecordedInput(2, 0xA5, RecordInputFlags.ExtendedKey),
+        new RecordedInput(3, 0x15, RecordInputFlags.Down, 0xF2),
+        new RecordedInput(4, 0x15, 0, 0xF2),
+        new RecordedInput(5, 0x15, RecordInputFlags.Down),
+        new RecordedInput(6, 0x15, 0),
+      },
+      "windows",
+      6
+    );
+    Assert(
+      koreanAlt.ToString().Replace("\r", "")
+        == "timeUs,key,down,sequence\n0,LeftAlt,1,0\n1,RightAlt,1,1\n2,RightAlt,0,2\n3,RightAlt,1,3\n4,RightAlt,0,4\n5,RightAlt,1,5\n6,RightAlt,0,6\n",
+      "Korean Hangul and standard right Alt must export press/release pairs, including older inputs without native metadata."
+    );
     RenderBundleCsv.WriteInputs(
       countdown,
       new[]

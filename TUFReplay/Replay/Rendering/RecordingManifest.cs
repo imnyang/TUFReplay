@@ -21,6 +21,9 @@ internal sealed class RecordingManifest
   [JsonProperty("inputsFile", Required = Required.Always)]
   public string InputsFile { get; set; }
 
+  [JsonProperty("nativeInputsFile")]
+  public string NativeInputsFile { get; set; }
+
   [JsonProperty("hitsFile", Required = Required.Always)]
   public string HitsFile { get; set; }
 

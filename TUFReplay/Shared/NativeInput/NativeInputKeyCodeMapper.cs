@@ -355,6 +355,9 @@ internal static class NativeInputKeyCodeMapper
       case 0x14:
         label = LogicalKeyboardKey.CapsLock;
         return true;
+      case 0x15: // VK_HANGUL: the right Alt position on Korean Windows keyboards.
+        label = LogicalKeyboardKey.RAlt;
+        return true;
       case 0x1B:
         label = LogicalKeyboardKey.Escape;
         return true;
@@ -493,6 +496,10 @@ internal static class NativeInputKeyCodeMapper
   internal static bool TryGetPlaybackKeyCode(RecordedInput input, out UnityEngine.KeyCode code)
   {
     code = UnityEngine.KeyCode.None;
+    // Hangul has no Unity key identity. Overlay providers bind its native code;
+    // the RightAlt alias is only for the legacy neutral render CSV.
+    if (CurrentPlatform() == "windows" && input.Key == 0x15)
+      return false;
     return TryGetUnityKeyName(CurrentPlatform(), input, out string name) && Enum.TryParse(name, out code);
   }
 
